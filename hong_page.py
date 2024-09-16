@@ -40,7 +40,7 @@ class Agent():
         self.search_tuple = tuple(random.sample(range(1, l+1), k))
         print('Tuples: ', self.search_tuple)
     
-    def localsearch(self, ll_1, ll_2, start_point):
+    def localsearch(self, ll_1, ll_2, start_point, n):
         # Creates an iterable cycle to go through below with the numbers specified in the search tuple
         iter_search_tuple = it.cycle(self.search_tuple)
         
@@ -101,6 +101,8 @@ class AgentGroup():
         # Defining the solution space
         self.list1 = [i for i in range(1,n+1)]
         self.list2 = random.sample(range(1,100+1),n)
+        print(self.list1)
+        print(self.list2)
 
         # Create Agents
         self.agents = [Agent(self.k,self.l,self.n) for _ in range(1,agent_number+1)]
@@ -120,22 +122,79 @@ class AgentGroup():
         formula = (self.k - deductions) / self.k
         return formula
     
+    # Gives out the average number of diversity across all possible tuples of agents
     def avg_diversity(self):
         individual_scores = []
         i = 0
         j = 0
+        comparisons = 0
         for i in range(len(self.agents)):
             for j in range(i+1, len(self.agents)):
                 x = self.diversity(self.agents[i], self.agents[j])
                 print(x)
+
                 individual_scores.append(x)
 
-        comparisons = (self.agent_number ** (self.agent_number-1))/2
+                # Count number of comparisons
+                comparisons += 1
         
         return sum(individual_scores)/comparisons
-     
     
+    # Gives out the found optimum for iterations number of steps
+    def globalsearch_step(self, iterations):
+
+        i = 0
+        startpoint = 1
+
+        while i < iterations:
+            optimum = self.agents[i].localsearch(self.list1, self.list2, startpoint, self.n)
+            startpoint = optimum
+            i += 1
+    
+        return optimum 
+    
+   # Gives out the last two optima for a predefined sequence of steps 
+    def globalsearch_2_step(self, iterations):
+
+        i = 0
+        startpoint = 1
+        optimum = None
+        optimum_before = None
+
+        while i < iterations:
+            optimum_before = optimum
+            optimum = self.agents[i].localsearch(self.list1, self.list2, startpoint, self.n)
+            print('Inside globalsearch_2_step the optimum is: ', optimum)
+            startpoint = optimum
+            i += 1
+    
+        return optimum_before, optimum
+
+    def globalsearch(self, max_steps):
+        
+            old_optimum, new_optimum = self.globalsearch_2_step(2)
+            print(old_optimum, new_optimum)
+
+            i = 3
+            while old_optimum != new_optimum and i < max_steps: # Define maximum  processing steps
+                old_optimum, new_optimum = self.globalsearch_2_step(i)
+                i += 1
+
+            # If the values are the same, let the rest of the agents have a go to improve on the found optimum
+            if old_optimum == new_optimum:
+                
+                # Determine which number it takes to get the rest of the agents to be considered
+                agent_mod_number = self.n - (i % self.n) 
+
+                old_optimum, new_optimum = self.globalsearch_2_step(i+agent_mod_number)
+
+
+            return new_optimum            
+         
+
 '''___________Testing_______'''
 
 testgroup = AgentGroup(agent_number=10, n=10, l=5, k=3)
-print(testgroup.avg_diversity())
+print(testgroup.globalsearch(100))
+print(testgroup.globalsearch_step(3))
+print(testgroup.globalsearch_step(2))
