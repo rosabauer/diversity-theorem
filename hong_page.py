@@ -1,14 +1,13 @@
 import random
 import itertools as it
+import numpy as np
 
 
 '''
-CREATING OUR SOLUTION SPACE
+CREATING THE SOLUTION SPACE
 Random value function with specified scope of ints
     Thompson add on for consistency: ONe to one
 '''
-
-
 
 '''Agent class:
     Local Optimum Search Function: {1,...,n} -> {1,...,n}
@@ -140,11 +139,39 @@ class AgentGroup():
         
         return sum(individual_scores)/comparisons
     
+    def manual_diversity(self, deviation='y', individual='y'):
+        individual_scores = []
+        i = 0
+        j = 0
+        comparisons = 0
+        for i in range(len(self.agents)):
+            for j in range(i+1, len(self.agents)):
+                x = self.diversity(self.agents[i], self.agents[j])
+                print(x)
+
+                individual_scores.append(x)
+
+                # Count number of comparisons
+                comparisons += 1
+        
+        if deviation == 'y' and individual == 'y':
+            return sum(individual_scores)/comparisons, np.std(individual_scores), individual_scores
+    
+        if deviation == 'y' and individual == 'n':
+            return sum(individual_scores)/comparisons, np.std(individual_scores)
+        
+        if deviation == 'n' and individual == 'y':
+            return sum(individual_scores)/comparisons, individual_scores
+        
+        else:
+            return sum(individual_scores)/comparisons
+        
+    
     # Gives out the found optimum for iterations number of steps
-    def globalsearch_step(self, iterations):
+    def globalsearch_step(self, iterations, startpoint):
 
         i = 0
-        startpoint = 1
+        startpoint = startpoint
 
         while i < iterations:
             optimum = self.agents[i].localsearch(self.list1, self.list2, startpoint, self.n)
@@ -154,10 +181,10 @@ class AgentGroup():
         return optimum 
     
    # Gives out the last two optima for a predefined sequence of steps 
-    def globalsearch_2_step(self, iterations):
+    def globalsearch_2_step(self, iterations, startpoint):
 
         i = 0
-        startpoint = 1
+        startpoint = startpoint
         optimum = None
         optimum_before = None
 
@@ -170,7 +197,8 @@ class AgentGroup():
     
         return optimum_before, optimum
 
-    def globalsearch(self, max_steps):
+    # Gives out the optimum for a startpoint and maxmimum number of steps
+    def globalsearch(self, max_steps, startpoint):
         
             old_optimum, new_optimum = self.globalsearch_2_step(2)
             print(old_optimum, new_optimum)
@@ -182,19 +210,118 @@ class AgentGroup():
 
             # If the values are the same, let the rest of the agents have a go to improve on the found optimum
             if old_optimum == new_optimum:
-                
+
                 # Determine which number it takes to get the rest of the agents to be considered
                 agent_mod_number = self.n - (i % self.n) 
 
-                old_optimum, new_optimum = self.globalsearch_2_step(i+agent_mod_number)
+                old_optimum, new_optimum = self.globalsearch_2_step(i+agent_mod_number, startpoint=startpoint)
 
 
-            return new_optimum            
+            return new_optimum 
+    
+    # Analgous to agent class, caculating the determinsitic stopping points for team work optimum search
+    def stoppingpoints(self):
+        start_l = self.list1
+        stop_l = []
+        for i in range(self.n):
+            stop_l.append(self.globalsearch(100000, start_l[i])) # Watch out, here we predefined the maximum steps to be arbitrarily large
+        
+        return stop_l
+
+    # Calculating the expected value of team work optimum search
+    def collectiveperformace(self):
+        stop_l = self.stoppingpoints()
+        stop_l_values = [self.list2[self.list1.index(stop)] for stop in stop_l]
+
+        return stop_l_values / self.n
+
+# Class to manually pick the agents who are assessed in their performance        
+class AgentGroupManual(AgentGroup):
+    def __init__(self, agent_number, n, l, k):
+        super().__init__(agent_number, n, l, k)
+
+    def manual_performance(self, method):
+        # Assessing agents' performance
+        performance_scores = []
+        
+        for agent in self.agents:
+            score = agent.performance(self.list1, self.list2, self.n) 
+            performance_scores.append((agent, score))
+
+        # Sort agents by performance score in descending order
+        performance_scores.sort(key=lambda x: x[1], reverse=True)
+
+        if method == "best":
+            agent_sample = performance_scores[:10]
+        elif method == "random":
+            # Randomly pick 10 agents
+            agent_sample = random.sample(performance_scores, min(10, len(performance_scores)))
+        else: 
+            return NameError
+
+        # Reassign agents who will have acess to the super-class methods for collective performance
+        all_agents = self.agents # Just to be safe
+        self.agents = [tuple[0] for tuple in agent_sample]
+
+        return self.collectiveperformace(), all_agents # To have all agents for later purposes
+
+    
          
 
 '''___________Testing_______'''
 
 testgroup = AgentGroup(agent_number=10, n=10, l=5, k=3)
-print(testgroup.globalsearch(100))
-print(testgroup.globalsearch_step(3))
-print(testgroup.globalsearch_step(2))
+print(testgroup.globalsearch(100,1))
+print(testgroup.globalsearch_step(3,1))
+print(testgroup.globalsearch_step(2,1))
+
+'''_______Simulations___________'''
+
+# Running the tests analogous to Hong and Page, adapting to picking agents as subgroups
+class Test:
+    def __init__(self, agent_number, n, l, k):
+        self.group = AgentGroupManual(agent_number=agent_number, n=n, l=l, k=k)
+
+    def run(self):
+
+        best_performances = []
+        random_performances = []
+        best_diversity, best_std = None, None
+        random_diversity, random_std = None, None
+
+        # Conduct epxeriments for best agents 50 times
+        for _ in range(50):
+            performances, group = self.group.manual_performance("best")
+            best_performances.append(performances)
+            
+            # Calculate mean and std
+            best_mean = np.mean(best_performances)
+            best_std = np.std(best_performances)
+
+            # Save diversity and std deviation
+            best_diversity, best_d_std = self.group.manual_diversity(deviation='y', individual='n')
+            
+        # Conduct experiments for random agents 50 times
+        for _ in range(50):
+            performances, group = self.group.manual_performance("random")
+            
+            random_performances.append(performances)
+
+            # Calculate mean and std
+            random_mean = np.mean(random_performances)
+            random_std = np.std(random_performances)
+
+            # Save diversity and std deviation
+            random_diversity, random_d_std = self.group.manual_diversity(deviation='y', individual='n')
+
+        print(f'Best performances: {best_performances} with mean {best_mean} and std {best_std}')
+        print(f'Diversity of the best performers: {best_diversity} with std {best_d_std}')
+
+        print(f'Random performances: {random_performances} with mean {random_mean} and std {random_std}')
+        print(f'Diversity of the random performers: {random_diversity} with std {random_d_std}')
+
+        return (best_performances, best_mean, best_std, best_diversity, best_d_std), (random_performances, random_mean, random_std, random_diversity, random_d_std) 
+
+
+        
+
