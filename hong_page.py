@@ -59,8 +59,8 @@ class Agent():
     def stoppingpoints(self, ll_1, ll_2):
         start_l = ll_1
         stop_l = []
-        for i in range(n):
-            stop_l.append(self.localsearch(ll_1, ll_2, start_l[i]))
+        for i in range(self.n):
+            stop_l.append(self.localsearch(ll_1, ll_2, start_l[i], self.n))
         
         return stop_l
     
@@ -99,7 +99,7 @@ class AgentGroup():
 
         # Defining the solution space
         self.list1 = [i for i in range(1,n+1)]
-        self.list2 = random.sample(range(1,100+1),n)
+        self.list2 = random.sample(range(1,2000+1),n)
         print(self.list1)
         print(self.list2)
 
@@ -174,7 +174,7 @@ class AgentGroup():
         startpoint = startpoint
 
         while i < iterations:
-            optimum = self.agents[i].localsearch(self.list1, self.list2, startpoint, self.n)
+            optimum = self.agents[i%len(self.agents)].localsearch(self.list1, self.list2, startpoint, self.n)
             startpoint = optimum
             i += 1
     
@@ -190,7 +190,7 @@ class AgentGroup():
 
         while i < iterations:
             optimum_before = optimum
-            optimum = self.agents[i].localsearch(self.list1, self.list2, startpoint, self.n)
+            optimum = self.agents[i%len(self.agents)].localsearch(self.list1, self.list2, startpoint, self.n)
             print('Inside globalsearch_2_step the optimum is: ', optimum)
             startpoint = optimum
             i += 1
@@ -200,12 +200,12 @@ class AgentGroup():
     # Gives out the optimum for a startpoint and maxmimum number of steps
     def globalsearch(self, max_steps, startpoint):
         
-            old_optimum, new_optimum = self.globalsearch_2_step(2)
+            old_optimum, new_optimum = self.globalsearch_2_step(2, startpoint=startpoint)
             print(old_optimum, new_optimum)
 
             i = 3
             while old_optimum != new_optimum and i < max_steps: # Define maximum  processing steps
-                old_optimum, new_optimum = self.globalsearch_2_step(i)
+                old_optimum, new_optimum = self.globalsearch_2_step(i, startpoint=startpoint)
                 i += 1
 
             # If the values are the same, let the rest of the agents have a go to improve on the found optimum
@@ -233,7 +233,7 @@ class AgentGroup():
         stop_l = self.stoppingpoints()
         stop_l_values = [self.list2[self.list1.index(stop)] for stop in stop_l]
 
-        return stop_l_values / self.n
+        return sum(stop_l_values) / self.n
 
 # Class to manually pick the agents who are assessed in their performance        
 class AgentGroupManual(AgentGroup):
@@ -270,10 +270,9 @@ class AgentGroupManual(AgentGroup):
 
 '''___________Testing_______'''
 
-testgroup = AgentGroup(agent_number=10, n=10, l=5, k=3)
-print(testgroup.globalsearch(100,1))
-print(testgroup.globalsearch_step(3,1))
-print(testgroup.globalsearch_step(2,1))
+testgroup = AgentGroup(agent_number=10, n=1000, l=12, k=3)
+print(testgroup.collectiveperformace())
+
 
 '''_______Simulations___________'''
 
@@ -322,6 +321,10 @@ class Test:
 
         return (best_performances, best_mean, best_std, best_diversity, best_d_std), (random_performances, random_mean, random_std, random_diversity, random_d_std) 
 
+'''Running some simulations'''
 
-        
+simulation1 = Test(100, 2000, 12, 3)
+best1, random1 = simulation1.run()
+
+
 
